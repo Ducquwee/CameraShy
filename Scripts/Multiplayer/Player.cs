@@ -2,56 +2,60 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Riptide;
+using Riptide.Utils;
 
 public class Player : MonoBehaviour
 {
-    // Dictionary to store the list of players using their IDs as keys
     public static Dictionary<ushort, Player> list = new Dictionary<ushort, Player>();
 
-    // Properties
-    public ushort Id { get; private set; } // ID of the player
-    public bool IsLocal { get; private set; } // Flag indicating if the player is the local player
-    private string username; // Username of the player
-    private string colour;
+    public ushort Id { get; private set; }
+    public string Username { get; private set; }
+    public string Colour { get; private set; }
 
-    // Called when the player object is destroyed
     private void OnDestroy()
     {
-        list.Remove(Id); // Remove the player from the list when destroyed
+        list.Remove(Id);
     }
 
-    // Spawns a player object with the given ID, username, and position
-    public static void Spawn(ushort id, string username, Vector3 position, string colour)
+    public static void Spawn(ushort id, string username, string colour)
     {
-        Player player;
-        if (id == NetworkManager.Singleton.Client.Id)
-        {
-            // If the ID matches the local client's ID, instantiate the local player prefab
-            player = Instantiate(GameLogic.Singleton.LocalPlayerPrefab, position, Quaternion.identity).GetComponent<Player>();
-            player.IsLocal = true; // Set IsLocal flag to true for the local player
-        }
-        else
-        {
-            // If the ID doesn't match the local client's ID, instantiate the regular player prefab
-            player = Instantiate(GameLogic.Singleton.PlayerPrefab, position, Quaternion.identity).GetComponent<Player>();
-            player.IsLocal = false; // Set IsLocal flag to false for other players
-        }
+        foreach (Player otherPlayer in list.Values)
+            otherPlayer.SendSpawned(id);
 
-        string playerColour = string.IsNullOrEmpty(colour) ? "Default" : colour; // Set the default color if none is provided
+        Player player = Instantiate(GameLogic.Singleton.PlayerPrefab, new Vector3(0f, 1f, 0f), Quaternion.identity).GetComponent<Player>();
 
-        player.name = $"Player {id} ({playerColour} - {(string.IsNullOrEmpty(username) ? "Guest" : username)})"; // Set the name of the player object
+        player.Id = id;
+        string playerColor = string.IsNullOrEmpty(colour) ? "Default" : colour;
+        player.name = $"Player {id} ({playerColor} - {(string.IsNullOrEmpty(username) ? "Guest" : username)})";
 
-        player.Id = id; // Set the ID of the player
-
-        player.username = string.IsNullOrEmpty(username) ? $"Guest {id}" : username; // Set the username of the player
+        player.SendSpawned();
+        list.Add(id, player);
     }
 
-
-    // Message handler for spawning a player received from the server
-    [MessageHandler((ushort)ServerToClientID.playerSpawned)]
-    private static void SpawnPlayer(Message message)
+    #region Messages
+    private void SendSpawned()
     {
-        // Extract the ID, username, and position from the message and call the Spawn method
-        Spawn(message.GetUShort(), message.GetString(), message.GetVector3(), message.GetString());
+        NetworkManager.Singleton.Server.SendToAll(AddSpawnData(Message.Create(MessageSendMode.Reliable, (ushort)ServerToClientID.playerSpawned)));
     }
+
+    private void SendSpawned(ushort toClientId)
+    {
+        NetworkManager.Singleton.Server.Send(AddSpawnData(Message.Create(MessageSendMode.Reliable, (ushort)ServerToClientID.playerSpawned)), toClientId);
+    }
+    private Message AddSpawnData(Message message)
+    {
+        message.AddUShort(Id);
+        message.AddString(Username);
+        message.AddVector3(transform.position);
+        message.AddString(Colour);
+        return message;
+    }
+
+    [MessageHandler((ushort)ClientToServerID.name)]
+    private static void Name(ushort fromClientId, Message message)
+    {
+        Spawn(fromClientId, message.GetString(), message.GetString());
+    }
+
+    #endregion
 }
