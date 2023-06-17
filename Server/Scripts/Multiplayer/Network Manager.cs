@@ -10,7 +10,7 @@ public enum ServerToClientID : ushort
 public enum ClientToServerID : ushort
 {
     name = 1,
-    colour,
+    UserColour,
 }
 public class NetworkManager : MonoBehaviour
 {
