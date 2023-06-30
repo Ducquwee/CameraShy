@@ -1,18 +1,18 @@
-using System.Collections;
-using System.Collections.Generic;
 using Riptide;
 using Riptide.Utils;
 using UnityEngine;
-using System;
+
 
 public enum ServerToClientID : ushort
 {
     playerSpawned = 1,
+    playerEliminated,
+    assignedColours,
 }
 public enum ClientToServerID : ushort
 {
     name = 1,
-    UserColour,
+    colourHex,
 }
 public class NetworkManager : MonoBehaviour
 {
@@ -35,62 +35,47 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
-    public Client Client { get; private set; }
-
-    [SerializeField] private string ip;
+    public Server Server { get; private set; }
     [SerializeField] private ushort port;
+    [SerializeField] private ushort maxClientCount;
+
+    private void Start()
+    {
+        
+
+        RiptideLogger.Initialize(Debug.Log, Debug.Log, Debug.LogWarning, Debug.LogError, false);
+        StartServer();
+
+    }
+
+    public void StartServer()
+    {
+        Server = new Server();
+        Server.Start(port, maxClientCount);
+        Server.ClientDisconnected += PlayerLeft;
+    }
 
     private void Awake()
     {
         Singleton = this;
     }
 
-    private void Start()
-    {
-        RiptideLogger.Initialize(Debug.Log, Debug.Log, Debug.LogWarning, Debug.LogError, true);
-
-        Client = new Client();
-        Client.Connected += DidConnect;
-        Client.ConnectionFailed += FailedToConnect;
-        Client.ClientDisconnected += PlayerLeft;
-        Client.Disconnected += DidDisconnect;
-    }
-
     private void FixedUpdate()
     {
-        Client.Update();
+        if (Server != null)
+        {
+            Server.Update();
+        }
     }
 
     private void OnApplicationQuit()
     {
-        Client.Disconnect();
+        Server.Stop();
     }
 
-    public void Connect()
+    private void PlayerLeft(object sender, ServerDisconnectedEventArgs e)
     {
-        Client.Connect($"{ip}:{port}");
+        Destroy(Player.list[e.Client.Id].gameObject);
     }
-
-    public void DidConnect(object sender, EventArgs e)
-    {
-        UIManager.Singleton.SendName();
-        UIManager.Singleton.SendColour();
-    }
-
-    private void FailedToConnect(object sender, EventArgs e)
-    {
-        UIManager.Singleton.BackToMain();
-    }
-
-    private void PlayerLeft(object sender, ClientDisconnectedEventArgs e)
-    {
-        Destroy(Player.list[e.Id].gameObject);
-    }
-
-    private void DidDisconnect(object sender, EventArgs e)
-    {
-        UIManager.Singleton.BackToMain();
-    }
-
-
 }
+

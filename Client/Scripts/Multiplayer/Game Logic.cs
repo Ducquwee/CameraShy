@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Riptide;
+using Riptide.Utils;
 
 public class GameLogic : MonoBehaviour
 {
@@ -22,11 +24,10 @@ public class GameLogic : MonoBehaviour
             }
         }
     }
-    public GameObject LocalPlayerPrefab => localPlayerPrefab;
+
     public GameObject PlayerPrefab => playerPrefab;
 
     [Header("Prefabs")]
-    [SerializeField] private GameObject localPlayerPrefab;
     [SerializeField] private GameObject playerPrefab;
 
     private void Awake()
